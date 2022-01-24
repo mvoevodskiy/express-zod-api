@@ -35,6 +35,8 @@ type DepictHelper<T extends z.ZodType<any>> = (params: {
   schema: T;
   initial?: SchemaObject;
   isResponse: boolean;
+  path: string;
+  method: Method;
 }) => SchemaObject;
 
 type DepictingRules = Partial<
@@ -68,9 +70,11 @@ export const depictDefault: DepictHelper<z.ZodDefault<z.ZodTypeAny>> = ({
   },
   initial,
   isResponse,
+  path,
+  method,
 }) => ({
   ...initial,
-  ...depictSchema({ schema: innerType, initial, isResponse }),
+  ...depictSchema({ schema: innerType, initial, isResponse, path, method }),
   default: defaultValue(),
 });
 
@@ -82,9 +86,15 @@ export const depictAny: DepictHelper<z.ZodAny> = ({ initial }) => ({
 export const depictUpload: DepictHelper<ZodUpload> = ({
   initial,
   isResponse,
+  path,
+  method,
 }) => {
   if (isResponse) {
-    throw new OpenAPIError("Please use z.upload() only for input.");
+    throw new OpenAPIError(
+      "Please use z.upload() only for input.",
+      path,
+      method
+    );
   }
   return {
     ...initial,
@@ -110,9 +120,13 @@ export const depictUnion: DepictHelper<
   },
   initial,
   isResponse,
+  path,
+  method,
 }) => ({
   ...initial,
-  oneOf: options.map((option) => depictSchema({ schema: option, isResponse })),
+  oneOf: options.map((option) =>
+    depictSchema({ schema: option, isResponse, path, method })
+  ),
 });
 
 export const depictIntersection: DepictHelper<
@@ -123,19 +137,21 @@ export const depictIntersection: DepictHelper<
   },
   initial,
   isResponse,
+  path,
+  method,
 }) => ({
   ...initial,
   allOf: [
-    depictSchema({ schema: left, isResponse }),
-    depictSchema({ schema: right, isResponse }),
+    depictSchema({ schema: left, isResponse, path, method }),
+    depictSchema({ schema: right, isResponse, path, method }),
   ],
 });
 
 export const depictOptionalOrNullable: DepictHelper<
   z.ZodOptional<any> | z.ZodNullable<any>
-> = ({ schema, initial, isResponse }) => ({
+> = ({ schema, initial, isResponse, path, method }) => ({
   ...initial,
-  ...depictSchema({ schema: schema.unwrap(), isResponse }),
+  ...depictSchema({ schema: schema.unwrap(), isResponse, path, method }),
 });
 
 export const depictEnum: DepictHelper<
@@ -166,10 +182,12 @@ export const depictObject: DepictHelper<z.AnyZodObject> = ({
   schema,
   initial,
   isResponse,
+  path,
+  method,
 }) => ({
   ...initial,
   type: "object",
-  properties: depictObjectProperties({ schema, isResponse }),
+  properties: depictObjectProperties({ schema, isResponse, path, method }),
   required: Object.keys(schema.shape).filter(
     (key) => !schema.shape[key].isOptional()
   ),
@@ -199,9 +217,11 @@ export const depictDate: DepictHelper<z.ZodDate> = ({
 export const depictDateIn: DepictHelper<ZodDateIn> = ({
   initial,
   isResponse,
+  path,
+  method,
 }) => {
   if (isResponse) {
-    throw new OpenAPIError("Please use z.dateOut() for output.");
+    throw new OpenAPIError("Please use z.dateOut() for output.", path, method);
   }
   return {
     ...initial,
@@ -218,9 +238,11 @@ export const depictDateIn: DepictHelper<ZodDateIn> = ({
 export const depictDateOut: DepictHelper<ZodDateOut> = ({
   initial,
   isResponse,
+  path,
+  method,
 }) => {
   if (!isResponse) {
-    throw new OpenAPIError("Please use z.dateIn() for input.");
+    throw new OpenAPIError("Please use z.dateIn() for input.", path, method);
   }
   return {
     ...initial,
@@ -248,6 +270,8 @@ export const depictRecord: DepictHelper<z.ZodRecord<z.ZodTypeAny>> = ({
   schema: { _def: def },
   initial,
   isResponse,
+  path,
+  method,
 }) => {
   if (
     def.keyType instanceof z.ZodEnum ||
@@ -267,6 +291,8 @@ export const depictRecord: DepictHelper<z.ZodRecord<z.ZodTypeAny>> = ({
       properties: depictObjectProperties({
         schema: z.object(shape),
         isResponse,
+        path,
+        method,
       }),
       required: keys,
     };
@@ -280,6 +306,8 @@ export const depictRecord: DepictHelper<z.ZodRecord<z.ZodTypeAny>> = ({
           [def.keyType._def.value]: def.valueType,
         }),
         isResponse,
+        path,
+        method,
       }),
       required: [def.keyType._def.value],
     };
@@ -304,6 +332,8 @@ export const depictRecord: DepictHelper<z.ZodRecord<z.ZodTypeAny>> = ({
         properties: depictObjectProperties({
           schema: z.object(shape),
           isResponse,
+          path,
+          method,
         }),
         required: def.keyType.options.map(
           (option: z.ZodLiteral<any>) => option.value
@@ -314,7 +344,12 @@ export const depictRecord: DepictHelper<z.ZodRecord<z.ZodTypeAny>> = ({
   return {
     ...initial,
     type: "object",
-    additionalProperties: depictSchema({ schema: def.valueType, isResponse }),
+    additionalProperties: depictSchema({
+      schema: def.valueType,
+      isResponse,
+      path,
+      method,
+    }),
   };
 };
 
@@ -322,10 +357,12 @@ export const depictArray: DepictHelper<z.ZodArray<z.ZodTypeAny>> = ({
   schema: { _def: def },
   initial,
   isResponse,
+  path,
+  method,
 }) => ({
   ...initial,
   type: "array",
-  items: depictSchema({ schema: def.type, isResponse }),
+  items: depictSchema({ schema: def.type, isResponse, path, method }),
   ...(def.minLength ? { minItems: def.minLength.value } : {}),
   ...(def.maxLength ? { maxItems: def.maxLength.value } : {}),
 });
@@ -335,8 +372,12 @@ export const depictTuple: DepictHelper<z.ZodTuple> = ({
   schema: { items },
   initial,
   isResponse,
+  path,
+  method,
 }) => {
-  const types = items.map((item) => depictSchema({ schema: item, isResponse }));
+  const types = items.map((item) =>
+    depictSchema({ schema: item, isResponse, path, method })
+  );
   return {
     ...initial,
     type: "array",
@@ -426,11 +467,13 @@ export const depictNumber: DepictHelper<z.ZodNumber> = ({
 export const depictObjectProperties = ({
   schema: { shape },
   isResponse,
+  path,
+  method,
 }: Parameters<DepictHelper<z.AnyZodObject>>[0]) => {
   return Object.keys(shape).reduce(
     (carry, key) => ({
       ...carry,
-      [key]: depictSchema({ schema: shape[key], isResponse }),
+      [key]: depictSchema({ schema: shape[key], isResponse, path, method }),
     }),
     {} as Record<string, SchemaObject>
   );
@@ -440,8 +483,15 @@ export const depictEffect: DepictHelper<z.ZodEffects<z.ZodTypeAny>> = ({
   schema,
   initial,
   isResponse,
+  path,
+  method,
 }) => {
-  const input = depictSchema({ schema: schema._def.schema, isResponse });
+  const input = depictSchema({
+    schema: schema._def.schema,
+    isResponse,
+    path,
+    method,
+  });
   const effect = schema._def.effect;
   if (isResponse && effect && effect.type === "transform") {
     let output = "undefined";
@@ -555,7 +605,12 @@ export const depictRequestParams = ({
       required: !shape[name].isOptional(),
       schema: {
         description: `${method.toUpperCase()} ${path} parameter`,
-        ...depictSchema({ schema: shape[name], isResponse: false }),
+        ...depictSchema({
+          schema: shape[name],
+          isResponse: false,
+          path,
+          method,
+        }),
       },
       ...depictIOParamExamples(schema, false, name),
     }));
@@ -592,6 +647,8 @@ const depictHelpers: DepictingRules = {
 export const depictSchema: DepictHelper<z.ZodTypeAny> = ({
   schema,
   isResponse,
+  path,
+  method,
 }) => {
   const initial: SchemaObject = {};
   if (schema.isNullable()) {
@@ -610,10 +667,12 @@ export const depictSchema: DepictHelper<z.ZodTypeAny> = ({
       : null;
   if (!nextHelper) {
     throw new OpenAPIError(
-      `Zod type ${schema.constructor.name} is unsupported`
+      `Zod type ${schema.constructor.name} is unsupported`,
+      path,
+      method
     );
   }
-  return nextHelper({ schema, initial, isResponse });
+  return nextHelper({ schema, initial, isResponse, path, method });
 };
 
 export const excludeParamsFromDepiction = (
@@ -675,6 +734,8 @@ export const depictResponse = ({
     depictSchema({
       schema,
       isResponse: true,
+      path,
+      method,
     })
   );
   const examples = depictIOExamples(schema, true);
@@ -705,6 +766,8 @@ export const depictRequest = ({
       depictSchema({
         schema: endpoint.getInputSchema(),
         isResponse: false,
+        path,
+        method,
       }),
       pathParams
     )

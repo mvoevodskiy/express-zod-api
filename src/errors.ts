@@ -1,8 +1,18 @@
+import { Method } from "./method";
+
 export class RoutingError extends Error {}
 
 export class DependsOnMethodError extends RoutingError {}
 
-export class OpenAPIError extends Error {}
+export class OpenAPIError extends Error {
+  constructor(
+    message: string,
+    public readonly path: string,
+    public readonly method: Method
+  ) {
+    super(message);
+  }
+}
 
 export class ResultHandlerError extends Error {
   protected readonly originalError?: Error;
