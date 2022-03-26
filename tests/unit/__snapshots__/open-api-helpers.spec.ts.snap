@@ -32,14 +32,6 @@ Object {
 }
 `;
 
-exports[`Open API helpers depictDate() should depict ZodDate 1`] = `
-Object {
-  "description": "z.date() is deprecated, please use z.dateIn() instead.",
-  "format": "date-time",
-  "type": "string",
-}
-`;
-
 exports[`Open API helpers depictDateIn should depict ZodDateIn 1`] = `
 Object {
   "description": "YYYY-MM-DDTHH:mm:ss.sssZ",
@@ -72,6 +64,61 @@ Object {
   "default": true,
   "description": "test",
   "type": "boolean",
+}
+`;
+
+exports[`Open API helpers depictDiscriminatedUnion() should depict ZodDiscriminatedUnion 1`] = `
+Object {
+  "description": "test",
+  "discriminator": Object {
+    "propertyName": "status",
+  },
+  "oneOf": Array [
+    Object {
+      "properties": Object {
+        "data": Object {
+          "format": "any",
+          "nullable": true,
+        },
+        "status": Object {
+          "enum": Array [
+            "success",
+          ],
+          "type": "string",
+        },
+      },
+      "required": Array [
+        "status",
+      ],
+      "type": "object",
+    },
+    Object {
+      "properties": Object {
+        "error": Object {
+          "properties": Object {
+            "message": Object {
+              "type": "string",
+            },
+          },
+          "required": Array [
+            "message",
+          ],
+          "type": "object",
+        },
+        "status": Object {
+          "enum": Array [
+            "error",
+          ],
+          "type": "string",
+        },
+      },
+      "required": Array [
+        "status",
+        "error",
+      ],
+      "type": "object",
+    },
+  ],
 }
 `;
 
@@ -576,5 +623,50 @@ Object {
     "b",
   ],
   "type": "object",
+}
+`;
+
+exports[`Open API helpers extractObjectSchema() should pass the object schema through 1`] = `
+Object {
+  "_type": "ZodObject",
+  "shape": Object {
+    "one": Object {
+      "_type": "ZodString",
+    },
+  },
+}
+`;
+
+exports[`Open API helpers extractObjectSchema() should return object schema for the intersection of object schemas 1`] = `
+Object {
+  "_type": "ZodObject",
+  "shape": Object {
+    "one": Object {
+      "_type": "ZodString",
+    },
+    "two": Object {
+      "_type": "ZodNumber",
+    },
+  },
+}
+`;
+
+exports[`Open API helpers extractObjectSchema() should return object schema for the union of object schemas 1`] = `
+Object {
+  "_type": "ZodObject",
+  "shape": Object {
+    "one": Object {
+      "_type": "ZodOptional",
+      "value": Object {
+        "_type": "ZodString",
+      },
+    },
+    "two": Object {
+      "_type": "ZodOptional",
+      "value": Object {
+        "_type": "ZodNumber",
+      },
+    },
+  },
 }
 `;

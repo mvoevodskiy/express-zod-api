@@ -11,8 +11,21 @@ describe("Errors", () => {
 
   describe("OpenAPIError", () => {
     test("should be an instance of Error", () => {
-      expect(new OpenAPIError("test") instanceof OpenAPIError).toBeTruthy();
-      expect(new OpenAPIError("test") instanceof Error).toBeTruthy();
+      expect(
+        new OpenAPIError("test", "/v1/getSomething", "get") instanceof
+          OpenAPIError
+      ).toBeTruthy();
+      expect(
+        new OpenAPIError("test", "/v1/getSomething", "get") instanceof Error
+      ).toBeTruthy();
+    });
+    test("should expose method and path props", () => {
+      expect(new OpenAPIError("test", "/v1/getSomething", "get").method).toBe(
+        "get"
+      );
+      expect(new OpenAPIError("test", "/v1/getSomething", "get").path).toBe(
+        "/v1/getSomething"
+      );
     });
   });
 

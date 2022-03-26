@@ -1,6 +1,134 @@
 # Changelog
 
+## Version 6
+
+### v6.0.1
+
+- `zod` version is 3.14.2.
+
+### v6.0.0
+
+- Technically this version contains all the same changes and improvements as 5.9.0-beta1.
+- The new implementation of the `EndpointsFactory`, however, has more restrictive middleware input schema requirements.
+- To avoid possible backward incompatibility issues, I have decided to publish these changes as a major release.
+- In addition, the deprecated schema `z.date()` is no longer supported in documentation generator.
+- The following changes are required to migrate to this version:
+  - You cannot use the `.strict()`, `.passthrough()` and its deprecated alias `.nonstrict()` methods in middlewares.
+  - Only `.strip()` is allowed in middlewares, which is actually default, so you should not use any of them at all.
+  - Replace the `z.date()` with `z.dateIn()` in input schema and with `z.dateOut()` in output schema.
+
+```typescript
+// how to migrate
+export const myMiddleware = createMiddleware({
+  input: z
+    .object({
+      key: z.string().nonempty(),
+      at: z.date(), // <— replace with z.dateIn()
+    })
+    .passthrough(), // <— remove this if you have it in your code
+  middleware: async () => ({...}),
+});
+
+```
+
 ## Version 5
+
+### v5.9.0-beta1
+
+- In this build, improvements have been made to the `EndpointsFactory`, in terms of combining the input schemas of
+  middlewares and the endpoint itself. A custom type has been replaced with usage of `ZodIntersection` schema with
+  respect to the originals.
+- The generated documentation has improved in this regard:
+  - Previously, fields from an object union were documented in a simplified way as optional.
+  - Instead, it is now documented using `oneOf` OpenAPI notation.
+- In addition, you can now also use the new `z.discriminatedUnion()` as the input schema on the top level.
+
+```typescript
+// example
+const endpoint = defaultEndpointsFactory.build({
+  method: "post",
+  input: z.discriminatedUnion("type", [
+    z.object({
+      type: z.literal("text"),
+      str: z.string()
+    }),
+    z.object({
+      type: z.literal("numeric"),
+      num: z.number()
+    }),
+  ]),
+  output: z.object({...}),
+  handler: async ({ input }) => {
+    // the type of the input:
+    // | { type: "text", str: string }
+    // | { type: "numeric", num: number }
+  }
+});
+```
+
+### v5.8.0
+
+- `zod` version is 3.13.4.
+  - There is a new schema `z.nan()` and some fixes.
+
+### v5.7.0
+
+- `zod` version is 3.12.0.
+  - There is a new schema `z.discriminatedUnion()` and various fixes.
+
+### v5.6.1
+
+- `express` version is 4.17.3.
+- `openapi3-ts` version is 2.0.2.
+
+### v5.6.0
+
+- Feature #311. `EndpointsFactory::addExpressMiddleware()` or its alias `use()`.
+  - A method to connect a native (regular) `express` middleware to your endpoint(s).
+  - You can connect any middleware that has a regular express middleware signature
+    `(req, res, next) => void | Promise<void>` and can be supplied to `app.use()`.
+  - You can also specify a provider of options for endpoint handlers and next middlewares.
+  - You can also specify an error transformer so that the `ResultHandler` would send the status you need.
+    - In case the error is not a `HttpError`, the `ResultHandler` will send the status `500`.
+
+```typescript
+import { defaultEndpointsFactory, createHttpError } from "express-zod-api";
+import cors from "cors";
+import { auth } from "express-oauth2-jwt-bearer";
+
+const simpleUsage = defaultEndpointsFactory.addExpressMiddleware(
+  cors({ credentials: true })
+);
+
+const advancedUsage = defaultEndpointsFactory.use(auth(), {
+  provider: (req) => ({ auth: req.auth }), // optional, can be async
+  transformer: (err) => createHttpError(401, err.message), // optional
+});
+```
+
+### v5.5.6
+
+- `winston` version is 3.6.0.
+
+### v5.5.5
+
+- `winston-transport` version is 4.5.0.
+
+### v5.5.4
+
+- `express-fileupload` version is 1.3.1.
+
+### v5.5.3
+
+- `winston` version is 3.5.1.
+- I made a website for the library available on following domains:
+  - [https://ez.robintail.cz](https://ez.robintail.cz) and
+  - [https://express-zod-api.vercel.app](https://express-zod-api.vercel.app).
+  - Currently, it provides the documentation for each release in a way I find more suitable.
+
+### v5.5.2
+
+- `winston` version is 3.5.0.
 
 ### v5.5.1
 

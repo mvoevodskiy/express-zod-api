@@ -10,10 +10,10 @@ import {
   RequestBodyObject,
   ResponseObject,
 } from "openapi3-ts/src/model/OpenApi";
+import { omit } from "ramda";
 import { z } from "zod";
 import {
   ArrayElement,
-  extractObjectSchema,
   getExamples,
   getRoutePathParams,
   IOSchema,
@@ -25,9 +25,9 @@ import { ZodDateOut, ZodDateOutDef } from "./date-out-schema";
 import { AbstractEndpoint } from "./endpoint";
 import { OpenAPIError } from "./errors";
 import { ZodFile, ZodFileDef } from "./file-schema";
+import { copyMeta } from "./metadata";
 import { Method } from "./method";
 import { ZodUpload, ZodUploadDef } from "./upload-schema";
-import { omit } from "ramda";
 
 type MediaExamples = Pick<MediaTypeObject, "examples">;
 
@@ -114,20 +114,32 @@ export const depictFile: DepictHelper<ZodFile> = ({
 
 export const depictUnion: DepictHelper<
   z.ZodUnion<[z.ZodTypeAny, ...z.ZodTypeAny[]]>
-> = ({
-  schema: {
-    _def: { options },
-  },
-  initial,
-  isResponse,
-  path,
-  method,
-}) => ({
+> = ({ schema: { options }, initial, isResponse, path, method }) => ({
   ...initial,
   oneOf: options.map((option) =>
     depictSchema({ schema: option, isResponse, path, method })
   ),
 });
+
+export const depictDiscriminatedUnion: DepictHelper<
+  z.ZodDiscriminatedUnion<string, z.Primitive, z.ZodObject<any>>
+> = ({
+  schema: { options, discriminator },
+  initial,
+  isResponse,
+  path,
+  method,
+}) => {
+  return {
+    ...initial,
+    discriminator: {
+      propertyName: discriminator,
+    },
+    oneOf: Array.from(options.values()).map((option) =>
+      depictSchema({ schema: option, isResponse, path, method })
+    ),
+  };
+};
 
 export const depictIntersection: DepictHelper<
   z.ZodIntersection<z.ZodTypeAny, z.ZodTypeAny>
@@ -199,19 +211,6 @@ export const depictNull: DepictHelper<z.ZodNull> = ({ initial }) => ({
   type: "string",
   nullable: true,
   format: "null",
-});
-
-/** @todo remove in next major update */
-export const depictDate: DepictHelper<z.ZodDate> = ({
-  initial,
-  isResponse,
-}) => ({
-  ...initial,
-  type: "string",
-  format: "date-time",
-  description: `z.date() is deprecated, please use ${
-    isResponse ? "z.dateOut()" : "z.dateIn()"
-  } instead.`,
 });
 
 export const depictDateIn: DepictHelper<ZodDateIn> = ({
@@ -582,6 +581,27 @@ export const depictIOParamExamples = <T extends IOSchema>(
   };
 };
 
+export function extractObjectSchema(subject: IOSchema) {
+  if (subject instanceof z.ZodObject) {
+    return subject;
+  }
+  let objectSchema: z.AnyZodObject;
+  if (
+    subject instanceof z.ZodUnion ||
+    subject instanceof z.ZodDiscriminatedUnion
+  ) {
+    objectSchema = Array.from(subject.options.values())
+      .map((option) => extractObjectSchema(option))
+      .reduce((acc, option) => acc.merge(option.partial()), z.object({}));
+  } else {
+    // intersection schema
+    objectSchema = extractObjectSchema(subject._def.left).merge(
+      extractObjectSchema(subject._def.right)
+    );
+  }
+  return copyMeta(subject, objectSchema);
+}
+
 export const depictRequestParams = ({
   path,
   method,
@@ -621,8 +641,6 @@ const depictHelpers: DepictingRules = {
   ZodNumber: depictNumber,
   ZodBigInt: depictBigInt,
   ZodBoolean: depictBoolean,
-  /** @todo remove in next major update */
-  ZodDate: depictDate,
   ZodDateIn: depictDateIn,
   ZodDateOut: depictDateOut,
   ZodNull: depictNull,
@@ -642,6 +660,7 @@ const depictHelpers: DepictingRules = {
   ZodEffects: depictEffect,
   ZodOptional: depictOptionalOrNullable,
   ZodNullable: depictOptionalOrNullable,
+  ZodDiscriminatedUnion: depictDiscriminatedUnion,
 };
 
 export const depictSchema: DepictHelper<z.ZodTypeAny> = ({
@@ -682,6 +701,9 @@ export const excludeParamsFromDepiction = (
   const properties = depicted.properties
     ? omit(pathParams, depicted.properties)
     : undefined;
+  const example = depicted.example
+    ? omit(pathParams, depicted.example)
+    : undefined;
   const required = depicted.required
     ? depicted.required.filter((name) => !pathParams.includes(name))
     : undefined;
@@ -697,13 +719,14 @@ export const excludeParamsFromDepiction = (
     : undefined;
 
   return omit(
-    Object.entries({ properties, required, allOf, oneOf })
+    Object.entries({ properties, required, example, allOf, oneOf })
       .filter(([{}, value]) => value === undefined)
       .map(([key]) => key),
     {
       ...depicted,
       properties,
       required,
+      example,
       allOf,
       oneOf,
     }
