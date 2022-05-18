@@ -79,6 +79,15 @@ export const depictAny: DepictHelper<z.ZodAny> = ({ initial }) => ({
   format: "any",
 });
 
+export const depictLazy: DepictHelper<z.ZodLazy<any>> & { round?: number } = ({
+  schema,
+  initial,
+  isResponse,
+}) => {
+  const content = schema._def.getter();
+  return depictAny({ schema: content, initial, isResponse });
+};
+
 export const depictUpload: DepictHelper<ZodUpload> = ({
   initial,
   isResponse,
@@ -595,6 +604,7 @@ const depictHelpers: DepictingRules = {
   ZodFile: depictFile,
   ZodUpload: depictUpload,
   ZodAny: depictAny,
+  ZodLazy: depictLazy,
   ZodDefault: depictDefault,
   ZodEnum: depictEnum,
   ZodNativeEnum: depictEnum,
