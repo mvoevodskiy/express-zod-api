@@ -29,6 +29,7 @@ export abstract class AbstractEndpoint {
     config: CommonConfig;
   }): Promise<void>;
   public abstract getDescription(): string | undefined;
+  public abstract getTitle(): string | undefined;
   public abstract getMethods(): Method[];
   public abstract getInputSchema(): IOSchema;
   public abstract getOutputSchema(): IOSchema;
@@ -93,6 +94,7 @@ type EndpointProps<
   handler: Handler<z.output<IN>, z.input<OUT>, OPT>;
   resultHandler: ResultHandlerDefinition<POS, NEG>;
   description?: string;
+  title?: string;
 } & MethodsDefinition<M>;
 
 export class Endpoint<
@@ -104,6 +106,7 @@ export class Endpoint<
   NEG extends ApiResponse
 > extends AbstractEndpoint {
   protected readonly description?: string;
+  protected readonly title?: string;
   protected readonly methods: M[] = [];
   protected readonly middlewares: AnyMiddlewareDef[] = [];
   protected readonly inputSchema: IN;
@@ -119,6 +122,7 @@ export class Endpoint<
     handler,
     resultHandler,
     description,
+    title,
     mimeTypes,
     ...rest
   }: EndpointProps<IN, OUT, OPT, M, POS, NEG>) {
@@ -130,6 +134,7 @@ export class Endpoint<
     this.handler = handler;
     this.resultHandler = resultHandler;
     this.description = description;
+    this.title = title;
     if ("methods" in rest) {
       this.methods = rest.methods;
     } else {
@@ -139,6 +144,10 @@ export class Endpoint<
 
   public override getDescription() {
     return this.description;
+  }
+
+  public override getTitle() {
+    return this.title;
   }
 
   public override getMethods(): M[] {

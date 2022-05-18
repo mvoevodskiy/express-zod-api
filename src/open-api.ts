@@ -62,6 +62,9 @@ export class OpenAPI extends OpenApiBuilder {
       if (endpoint.getDescription()) {
         operation.description = endpoint.getDescription();
       }
+      if (endpoint.getTitle()) {
+        operation.title = endpoint.getTitle();
+      }
       if (depictedParams.length > 0) {
         operation.parameters = depictedParams;
       }
